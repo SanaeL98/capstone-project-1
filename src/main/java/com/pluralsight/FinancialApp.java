@@ -1,14 +1,10 @@
 package com.pluralsight;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-
+import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
 
 public class FinancialApp {
@@ -29,21 +25,20 @@ public class FinancialApp {
                     makeAPayment();
                     break;
                 case "L":
-                    viewLedger();
+                    showLedgerMenu();
                     break;
                 case "R":
-                    runReport();
+                    showReportsMenu();
                     break;
                 case "X":
                     running = false;
                     System.out.println("Goodbye!");
                     break;
-
                 default:
                     System.out.println("Invalid option. Please try again.");
-
             }
         }
+
     }
 
     public static void showMainMenu() {
@@ -51,10 +46,77 @@ public class FinancialApp {
         System.out.println("Please choose an option");
         System.out.println("D) Add deposit");
         System.out.println("P) Make Payment");
-        System.out.println("L) Ledger");
+        System.out.println("L) View Ledger");
         System.out.println("R) Run Report");
         System.out.println("X) Exit");
-        System.out.println("Your choice: ");
+        System.out.print("Your choice: ");
+    }
+
+
+    public static void showLedgerMenu() {
+        boolean inLedgerMenu = true;
+
+        while (inLedgerMenu) {
+            System.out.println("\n=== Ledger Menu ===");
+            System.out.println("1) Display All Entries");
+            System.out.println("2) Display Deposits");
+            System.out.println("3) Display Payments");
+            System.out.println("4) Back to Main Menu");
+            System.out.print("Your choice: ");
+
+            String choice = scanner.nextLine();
+            switch (choice) {
+                case "1":
+                    displayAllEntries();
+                    break;
+                case "2":
+                    displayDeposits();
+                    break;
+                case "3":
+                    displayPayments();
+                    break;
+                case "4":
+                    inLedgerMenu = false;
+                    break;
+                default:
+                    System.out.println("Invalid option. Try again.");
+            }
+        }
+    }
+
+    public static void showReportsMenu() {
+        boolean inReportsMenu = true;
+
+        while (inReportsMenu) {
+            System.out.println("\n=== Reports Menu ===");
+            System.out.println("1) Display by Month");
+            System.out.println("2) Display Previous Month");
+            System.out.println("3) Display Year to Date");
+            System.out.println("4) Search by Vendor");
+            System.out.println("5) Back to Main Menu");
+            System.out.print("Your choice: ");
+
+            String choice = scanner.nextLine();
+            switch (choice) {
+                case "1":
+                    displayPayments();
+                    break;
+                case "2":
+                    displayPreviousMonth();
+                    break;
+                case "3":
+                    displayYearToDate();
+                    break;
+                case "4":
+                    searchByVendor();
+                    break;
+                case "5":
+                    inReportsMenu = false;
+                    break;
+                default:
+                    System.out.println("Invalid option. Try again.");
+            }
+        }
     }
 
     public static void makeADeposit() {
@@ -68,31 +130,25 @@ public class FinancialApp {
             System.out.print("Enter amount: ");
             double amount = Double.parseDouble(scanner.nextLine());
 
-            LocalDateTime dateTime = LocalDateTime.now();
-            String date = dateTime.toLocalDate().toString();
-            String time = dateTime.toLocalTime().withNano(0).toString();
+            LocalDateTime now = LocalDateTime.now();
 
-            String[] tokens = {date, time, description, vendor, String.valueOf(amount)};
-
-            String transaction = String.join(",", tokens);
+            Ledger deposit = new Ledger(now, description, vendor, amount);
 
             FileWriter writer = new FileWriter("data/transactions.csv", true);
-            writer.write(transaction + "\n");
+            writer.write(now.toLocalDate() + "|" + now.toLocalTime() + "|" + deposit.getDescription() + "|" + deposit.getVendor() + "|" + deposit.getAmount() + "\n");
             writer.close();
 
-            System.out.println("Deposit saved successfully!");
+            System.out.println("Deposit saved successfully.");
 
         } catch (IOException e) {
-            System.out.println("An error occurred while saving the deposit: " + e.getMessage());
+            System.out.println("Error writing to file: " + e.getMessage());
         } catch (NumberFormatException e) {
-            System.out.println("Invalid number entered for amount.");
+            System.out.println("Invalid amount.");
         }
     }
 
-    public static void makeAPayment() {
-        System.out.println("\nMake Payment");
-        System.out.println("------------");
 
+    public static void makeAPayment() {
         try {
             System.out.print("Enter description: ");
             String description = scanner.nextLine();
@@ -105,182 +161,164 @@ public class FinancialApp {
 
             amount = -Math.abs(amount);
 
-            LocalDateTime dateTime = LocalDateTime.now();
-            String date = dateTime.toLocalDate().toString();
-            String time = dateTime.toLocalTime().withNano(0).toString();
-
-            String[] tokens = {date, time, description, vendor, String.valueOf(amount)};
-            String transaction = String.join(",", tokens);
+            LocalDateTime now = LocalDateTime.now();
+            String date = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            String time = now.format(DateTimeFormatter.ofPattern("HH:mm:ss"));
 
             FileWriter writer = new FileWriter("data/transactions.csv", true);
-            writer.write(transaction + "\n");
+            writer.write(date + "|" + time + "|" + description + "|" + vendor + "|" + amount + "\n");
             writer.close();
 
+            System.out.println("Payment recorded successfully.");
         } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public static void viewLedger() {
-
-        System.out.println("\n--- Ledger Entries ---\n");
-
-        List<Ledger> entries = new ArrayList<>();
-
-        try {
-          //  BufferedReader reader = new BufferedReader(new FileReader("data/transactions.csv"));
-            FileReader fileReader = new FileReader("data/transactions.csv");
-            BufferedReader reader = new BufferedReader(fileReader);
-            String line;
-
-            while ((line = reader.readLine()) != null) {
-                String[] tokens = line.split(",");
-                LocalDateTime dateTime = LocalDateTime.parse(tokens[0] + "T" + tokens[1]);
-                String description = tokens[2];
-                String vendor = tokens[3];
-                double amount = Double.parseDouble(tokens[4]);
-
-                Ledger entry = new Ledger(dateTime, description, vendor, amount);
-                entries.add(entry);
-            }
-            reader.close();
-
-            entries.sort(Comparator.comparing(Ledger::getDateTime).reversed());
-
-            for (Ledger entry : entries) {
-                System.out.println(entry.toString());
-            }
-        } catch (IOException e) {
-            //System.out.println("Error reading file: " + e.getMessage());
-            e.printStackTrace();
+            System.out.println("Error writing to file: " + e.getMessage());
         } catch (NumberFormatException e) {
-            //System.out.println("Invalid number format in file.");
-            e.printStackTrace();
-        }
-
-        promptReturnToMenu();
-    }
-
-    public static void promptReturnToMenu() {
-        System.out.println("\nPress Enter to return to the main menu...");
-        scanner.nextLine();
-
-    }
-
-    public static void runReport() {
-    boolean reporting = true;
-
-    while (reporting) {
-        System.out.println("\nRun Reports");
-        System.out.println("-----------");
-        System.out.println("1) Show deposits only");
-        System.out.println("2) Show payments only");
-        System.out.println("3) Search by vendor");
-        System.out.println("4) Return to main menu");
-        System.out.print("Enter option: ");
-
-        String choice = scanner.nextLine();
-
-        switch (choice) {
-            case "1":
-                showDeposit();
-                break;
-            case "2":
-                showPayments();
-                break;
-            case "3":
-                searchByVendor();
-                break;
-            case "4":
-                reporting = false;
-                break;
-            default:
-                System.out.println("Invalid option. Try again.");
+            System.out.println("Invalid amount entered.");
         }
     }
-}
 
+    public static void displayAllEntries() {
+        try (Scanner fileScanner = new Scanner(new java.io.File("data/transactions.csv"))) {
+            System.out.println("\n=== All Ledger Entries ===");
 
-public static void showDeposit() {
-    System.out.println("\n--- Deposits ---");
+            fileScanner.nextLine(); // Skip the header row
 
-    try {
-        BufferedReader reader = new BufferedReader(new FileReader("data/transactions.csv"));
-        String line;
-
-        while ((line = reader.readLine()) != null) {
-            String[] tokens = line.split(",");
-
-            double amount = Double.parseDouble(tokens[4]);
-
-            if (amount > 0) {
+            while (fileScanner.hasNextLine()) {
+                String line = fileScanner.nextLine();
                 System.out.println(line);
             }
+        } catch (IOException e) {
+            System.out.println("Error reading entries: " + e.getMessage());
         }
-
-        reader.close();
-    } catch (IOException e) {
-        System.out.println("Error reading file: " + e.getMessage());
-    } catch (NumberFormatException e) {
-        System.out.println("Invalid number format in file.");
-
     }
 
-    promptReturnToMenu();
-}
 
-public static void showPayments() {
-    System.out.println("\n--- Payments ---");
+    public static void displayDeposits() {
+        try (Scanner fileScanner = new Scanner(new java.io.File("data/transactions.csv"))) {
+            System.out.println("\n=== Deposits ===");
 
-    try {
-        BufferedReader reader = new BufferedReader(new FileReader("data/transactions.csv"));
-        String line;
+            fileScanner.nextLine(); // Skip the header row
 
-        while ((line = reader.readLine()) != null) {
-            String[] tokens = line.split(",");
-            double amount = Double.parseDouble(tokens[4]);
-
-            if (amount < 0) {
-                System.out.println(line);
+            while (fileScanner.hasNextLine()) {
+                String line = fileScanner.nextLine();
+                String[] parts = line.split("\\|");
+                double amount = Double.parseDouble(parts[4]);
+                if (amount > 0) {
+                    System.out.println(line);
+                }
             }
+        } catch (IOException | NumberFormatException e) {
+            System.out.println("Error reading deposits: " + e.getMessage());
         }
 
-        reader.close();
-    } catch (IOException e) {
-        System.out.println("Error reading file: " + e.getMessage());
-    } catch (NumberFormatException e) {
-        System.out.println("Invalid number format in file.");
     }
 
-    promptReturnToMenu();
-}
 
+    public static void displayPayments() {
+        try (Scanner fileScanner = new Scanner(new java.io.File("data/transactions.csv"))) {
+            System.out.println("\n=== Payments ===");
 
-public static void searchByVendor() {
-    System.out.print("\nEnter vendor name to search: ");
-    String searchVendor = scanner.nextLine().toLowerCase();
+            fileScanner.nextLine(); // Skip the header row
 
-    System.out.println("\n--- Results for Vendor: " + searchVendor + " ---");
-
-    try {
-        BufferedReader reader = new BufferedReader(new FileReader("data/transactions.csv"));
-        String line;
-
-        while ((line = reader.readLine()) != null) {
-            String[] tokens = line.split(",");
-            String vendor = tokens[3].toLowerCase();
-
-            if (vendor.contains(searchVendor)) {
-                System.out.println(line);
+            while (fileScanner.hasNextLine()) {
+                String line = fileScanner.nextLine();
+                String[] parts = line.split("\\|");
+                double amount = Double.parseDouble(parts[4]);
+                if (amount < 0) {
+                    System.out.println(line);
+                }
             }
+        } catch (IOException | NumberFormatException e) {
+            System.out.println("Error reading payments: " + e.getMessage());
+        }
+    }
+
+    public static void displayByMonth() {
+        String currentMonth = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        try (Scanner fileScanner = new Scanner(new File("data/transactions.csv"))) {
+            System.out.println("\n=== Transactions for This Month ===");
+            while (fileScanner.hasNextLine()) {
+                String line = fileScanner.nextLine();
+                if (line.toLowerCase().contains("amount")) continue;
+                String[] parts = line.split("\\|");
+                if (parts[0].startsWith(currentMonth)) {
+                    System.out.println(line);
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading file: " + e.getMessage());
         }
 
-        reader.close();
-    } catch (IOException e) {
-        System.out.println("Error reading file: " + e.getMessage());
     }
 
-    promptReturnToMenu();
-}
+    public static void displayPreviousMonth() {
+        String lastMonth = LocalDateTime.now().minusMonths(1).format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        try (Scanner fileScanner = new Scanner(new File("data/transactions.csv"))) {
+            System.out.println("\n=== Transactions for Previous Month ===");
+            while (fileScanner.hasNextLine()) {
+                String line = fileScanner.nextLine();
+                if (line.toLowerCase().contains("amount")) continue;
+                String[] parts = line.split("\\|");
+                if (parts[0].startsWith(lastMonth)) {
+                    System.out.println(line);
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading file: " + e.getMessage());
+        }
+
     }
+
+    public static void displayYearToDate() {
+        String currentYear = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy"));
+        try (Scanner fileScanner = new Scanner(new File("data/transactions.csv"))) {
+            System.out.println("\n=== Year-to-Date Transactions ===");
+            while (fileScanner.hasNextLine()) {
+                String line = fileScanner.nextLine();
+                if (line.toLowerCase().contains("amount")) continue;
+                String[] parts = line.split("\\|");
+                if (parts[0].startsWith(currentYear)) {
+                    System.out.println(line);
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading file: " + e.getMessage());
+        }
+
+    }
+
+    public static void searchByVendor() {
+        System.out.print("Enter vendor name to search: ");
+        String searchVendor = scanner.nextLine().toLowerCase();
+
+        try (Scanner fileScanner = new Scanner(new File("data/transactions.csv"))) {
+            System.out.println("\n=== Transactions for Vendor: " + searchVendor + " ===");
+            boolean found = false;
+
+            while (fileScanner.hasNextLine()) {
+                String line = fileScanner.nextLine();
+                if (line.toLowerCase().contains("amount")) continue;
+                String[] parts = line.split("\\|");
+                if (parts.length >= 4) {
+                    String vendor = parts[3].toLowerCase();
+                    if (vendor.contains(searchVendor)) {
+                        System.out.println(line);
+                        found = true;
+                    }
+                }
+            }
+
+            if (!found) {
+                System.out.println("No transactions found for vendor: " + searchVendor);
+            }
+
+        } catch (IOException e) {
+            System.out.println("Error reading file: " + e.getMessage());
+        }
+
+    }
+
+}
+
+
 
